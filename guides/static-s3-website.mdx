@@ -1,0 +1,322 @@
+---
+title: Static next.js website on S3 using terraform and github actions (WIP)
+date: "November 3, 2022"
+description: Detailed guide to creating a static website on S3. In this example we will be using Next.js, terraform and github actions to do so, and CloudFront to serve the application.
+---
+
+## 1. Create a next.js application
+
+<div className="paragraph">
+    For automatic application setup run
+    <div className="code">
+    ```
+    npx create-next-app@latest
+    ```
+    </div>
+    Image
+
+    Change into the app directory, we should see that a git project has been created by default.
+    Image
+
+    To check that the application runs okay we can run
+    <div className="code">
+    ```
+    npm run dev
+    ```
+    </div>
+    This is well documented in [[next.js guides](https://nextjs.org/docs)], you can choose to follow it for different ways to set up your app, but this is the basic way I do it.
+
+</div>
+
+## 2. Put it on github
+
+<div className="paragraph">
+Create a new github repository
+Image
+
+Follow the guide for pushing your project to the new repository
+
+Image
+
+<div className="code">
+```
+git remote add origin git@github.com:kosiakkatrina/tutorial.git
+git branch -M main <- this is to rename the branch, don’t need to run it
+git push -u origin main
+```
+</div>
+</div>
+## 3. Create terraform to provision AWS S3
+<div className="paragraph">
+Using AWS management console create an S3 bucket to store terraform state
+
+Navigate to S3
+
+Image
+
+Click on Create bucket on the right side of the page
+
+Image
+
+Enter the name and the region of the bucket (Probably set aws region to the one most geographically close to you), leave the rest of the options default and click create bucket at the bottom of the page.
+
+Image
+
+Create a `/terraform` folder with `main.tf` file in the root directory of the project  
+In `/terraform/main.tf` set providers, versions and create an s3 bucket to store terraform state
+<div className="code">
+```
+terraform {
+ required_providers {
+  aws = {
+   source  = "hashicorp/aws"
+   version = "~> 4.16"
+  }
+ }
+
+ required_version = ">= 1.2.0"
+
+ backend "s3" {
+  bucket = "kat-tutorial-terraform-state"
+  key = "terraform"
+  region = "eu-west-2"
+ }
+}
+
+provider "aws" {
+  region  = "eu-west-2"
+}
+```
+</div>
+Add an S3 bucket where our static website will live. I’m making the bucket public, but if you need it to be private you’re on your own kiddo. (there is a way to do it because we will be serving the application with CloudFront, but I have not yet figured it out)
+<div className="code">
+```
+resource  "aws_s3_bucket"  "s3Bucket" {
+	bucket = "tutorial-deploy"
+	acl = "public-read"
+}
+```
+</div>
+</div>
+## 4. Create GitHub actions workflow to deploy the application
+<div className="paragraph">
+Create `.github/workflows` directory structure with `pipeline.yml` file (GitHub has [good documentation](https://docs.github.com/en/actions/quickstart) on this)  
+Image
+
+In `/.github/workflows/pipeline.yml` add code to trigger the pipeline on push to `main` branch
+<div className="code">
+```
+name: deploy
+run-name: deploy
+on:
+ push:
+  branches:
+   - main
+```
+</div>
+Add a deploy job with the following steps:
+
+1. Checkout the code from the repository
+2. Initialise terraform working directory (our terraform files live in terraform directory so we cd into the directory before running terraform init)
+3. Validate terraform configuration
+4. Apply the changes from terraform
+5. Setup node environment
+6. Install dependencies
+7. Build and export next.js application
+8. Update/upload the application to S3
+<div className="code">
+```
+jobs:
+ deploy:
+  runs-on: ubuntu-latest
+  steps:
+   - name: Checkout repo
+    uses: actions/checkout@v2
+
+   - name: Terraform init
+    env:
+     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    run: |
+     export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+     export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+     cd terraform
+     terraform init
+     cd ..
+
+   - name: Terraform validate
+    run: cd terraform && terraform validate && cd ..
+
+   - name: Terraform Apply
+    env:
+     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    run: |
+     export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+     export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+     cd terraform
+     terraform apply -auto-approve
+     cd ..
+
+   - name: Setup node
+    uses: actions/setup-node@v1
+    with:
+     node-version: 18.10.0
+
+   - name: Install dependencies
+    run: npm ci
+
+   - name: Export build
+    run: npm run export
+
+   - name: Sync S3
+    uses: jakejarvis/s3-sync-action@master
+    with:
+     args: --acl public-read
+    env:
+        SOURCE_DIR: "./out"
+     AWS_REGION: "eu-west-2"
+     AWS_S3_BUCKET: "tutorial-deploy"
+     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+```
+</div>
+Add an export command to `package.json`
+<div className="code">
+```
+"scripts": {
+	...
+	"export": "next build && next export"
+},
+```
+</div>
+And add this to the `next.config.js`
+<div className="code">
+```
+images: { unoptimized:  true }
+```
+</div>
+</div>
+## 5. Create AWS credentials
+<div className="paragraph">
+
+Navigate to **IAM**
+Image
+
+Choose **users** from the side menu
+Image
+
+Click on **add users** button on the right
+Image
+
+Add a user name, select **Access key** for **AWS credential type** and click **Next**
+Image
+
+Select **attach existing policies directly**
+Image
+
+Add **AmazonS3FullAccess** and **CloudFrontFullAccess** permissions
+Image
+Image
+
+Review the new user and click on **create user**
+Image
+
+We will use **Access key ID** and **Secret access key**, so keep these values safe (we can discard and regenerate them later if needed)
+Image
+
+</div>
+## 6. Set AWS environment variables in github secrets
+<div className="paragraph">
+
+In GitHub, navigate to your repository > **Settings**
+From the side menu select **secrets** > **actions**
+
+Add new repository secrets named **AWS_ACCESS_KEY_ID** and **AWS_SECRET_ACCESS_KEY** and set them to values generated in step 5
+
+</div>
+## 7. Push the code!
+<div className="paragraph">
+
+At this point we can push our changes to see the github workflow and terraform running
+
+We can see that the github actions pipeline has successfully completed in **Actions** tab of the repository
+Image
+
+And we should also now see a new S3 bucket with the application files in AWS
+Image
+
+</div>
+## 8. Create cloudfront distribution
+<div className="paragraph">
+
+To serve our static content we will add cloudfront distribution using terraform
+<div className="code">
+```
+locals {
+ s3_origin_id = "tutorial-deploy-origin-id"
+}
+
+resource  "aws_cloudfront_distribution"  "s3_distribution" {
+ origin {
+  domain_name = aws_s3_bucket.s3Bucket.bucket_regional_domain_name
+  origin_id = local.s3_origin_id
+ }
+
+ enabled = true
+ is_ipv6_enabled = true
+ default_root_object = "index.html"
+
+ default_cache_behavior {
+  allowed_methods = ["GET", "HEAD", "OPTIONS"]
+  cached_methods = ["GET", "HEAD"]
+  target_origin_id = local.s3_origin_id
+
+  forwarded_values {
+   query_string = false
+   cookies {
+    forward = "none"
+   }
+  }
+
+  viewer_protocol_policy = "allow-all"
+
+  min_ttl = 0
+  default_ttl = 3600
+  max_ttl = 86400
+ }
+
+ price_class = "PriceClass_100"
+
+ restrictions {
+  geo_restriction {
+   restriction_type = "none"
+   locations = []
+  }
+ }
+
+ tags = {
+  Environment = "production"
+ }
+
+ viewer_certificate {
+  cloudfront_default_certificate = true
+ }
+}
+```
+</div>
+</div>
+## 9. Deploy and access the application
+<div className="paragraph">
+
+Commit and push the updated terrraform
+Navigate to cloudfront in AWS management console
+Image
+
+Select your distribution
+Image
+
+Copy the distribution domain name into the url and see your application
+Image
+
+</div>

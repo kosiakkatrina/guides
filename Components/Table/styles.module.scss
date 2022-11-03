@@ -1,0 +1,76 @@
+@import "../../helpers/mixins";
+
+.table {
+  display: block;
+  margin-bottom: 16px;
+  margin-top: 16px;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+
+  @include md {
+    display: table;
+  }
+
+  .row {
+    display: block;
+    padding: 20px 0px 20px 0px;
+    border-bottom: 1px solid var(--darktext);
+
+    font-size: 14px;
+    line-height: 1.1em;
+    @media (min-width: 600px) {
+      font-size: 16px;
+    }
+
+    &:last-of-type {
+      border-bottom: none;
+    }
+
+    @include md {
+      display: table-row;
+    }
+
+    td {
+      display: block;
+      width: 100%;
+      border: 0;
+
+      @include md {
+        border: 1;
+        padding: 10px 10px 20px 10px;
+        vertical-align: top;
+        display: table-cell;
+      }
+    }
+
+    .date {
+      font-weight: 200;
+      @include md {
+        width: 20%;
+      }
+    }
+
+    .role {
+      font-weight: 500;
+      @include md {
+        width: 30%;
+      }
+    }
+
+    .detail {
+      font-weight: 300;
+      padding-top: 10px;
+      @include md {
+        padding-top: 10px;
+        width: 50%;
+      }
+    }
+  }
+}
+
+.link {
+  text-decoration: none;
+  color: var(--darktext)
+}
