@@ -2,10 +2,10 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { serialize } from "next-mdx-remote/serialize";
-import SyntaxHighlighter from "react-syntax-highlighter";
 import { MDXRemote } from "next-mdx-remote";
 import styles from "../../styles/Home.module.scss";
 import css from "./styles.module.scss";
+import Image from 'next/image'
 
 const PostPage = ({
   frontMatter: { title },
@@ -17,7 +17,7 @@ const PostPage = ({
   return (
     <div className={`${styles.grid} ${css.fadein}`}>
       <h1>{title}</h1>
-      <MDXRemote {...mdxSource} components={{ SyntaxHighlighter }} />
+      <MDXRemote {...mdxSource} components={{ Image }} />
     </div>
   );
 };

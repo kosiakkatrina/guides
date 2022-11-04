@@ -1,22 +1,28 @@
 ---
-title: Static next.js website on S3 using terraform and github actions (WIP)
-date: "November 3, 2022"
-description: Detailed guide to creating a static website on S3. In this example we will be using Next.js, terraform and github actions to do so, and CloudFront to serve the application.
+title: Deploy a static Next.js website on S3
+date: "November 4, 2022"
+description: Detailed guide to creating a static website on S3. In this example we will be using Next.js, Terraform and GitHub actions to do so. We will also add CloudFront distribution to serve the application.
 ---
+Detailed guide to creating a static website on S3.
 
-## 1. Create a next.js application
+In this example we will be using Next.js, Terraform and GitHub actions to do so. 
+
+We will also add CloudFront distribution to serve the application.
+
+## 1. Create a Next.js application
 
 <div className="paragraph">
-    For automatic application setup run
+    For automatic application setup run:
     <div className="code">
     ```
     npx create-next-app@latest
     ```
     </div>
-    Image
+    <Image className="image" src="/images/01-npx-create-next-application.png" width={586} height={100}/>
 
     Change into the app directory, we should see that a git project has been created by default.
-    Image
+    <Image className="image" src="/images/02-cd-tutorial.png" width={324} height={117}/>
+
 
     To check that the application runs okay we can run
     <div className="code">
@@ -24,24 +30,22 @@ description: Detailed guide to creating a static website on S3. In this example 
     npm run dev
     ```
     </div>
-    This is well documented in [[next.js guides](https://nextjs.org/docs)], you can choose to follow it for different ways to set up your app, but this is the basic way I do it.
+    This is well documented in [Next.js guides](https://nextjs.org/docs), you can choose to follow it for different ways to set up your app, but this is the basic way I do it.
 
 </div>
 
 ## 2. Put it on github
 
 <div className="paragraph">
-Create a new github repository
-Image
+Create a new GitHub repository
+    <Image className="image" src="/images/03-new-repo.png" width={591} height={180}/>
 
 Follow the guide for pushing your project to the new repository
-
-Image
 
 <div className="code">
 ```
 git remote add origin git@github.com:kosiakkatrina/tutorial.git
-git branch -M main <- this is to rename the branch, don’t need to run it
+git branch -M main <- this is to rename the branch, don’t really need to run it
 git push -u origin main
 ```
 </div>
@@ -52,15 +56,13 @@ Using AWS management console create an S3 bucket to store terraform state
 
 Navigate to S3
 
-Image
+    <Image className="image" src="/images/04-S3-search.png" width={800} height={223}/>
 
 Click on Create bucket on the right side of the page
 
-Image
-
 Enter the name and the region of the bucket (Probably set aws region to the one most geographically close to you), leave the rest of the options default and click create bucket at the bottom of the page.
 
-Image
+    <Image className="image" src="/images/05-tf-state-s3.png" width={826} height={446}/>
 
 Create a `/terraform` folder with `main.tf` file in the root directory of the project  
 In `/terraform/main.tf` set providers, versions and create an s3 bucket to store terraform state
@@ -101,7 +103,6 @@ resource  "aws_s3_bucket"  "s3Bucket" {
 ## 4. Create GitHub actions workflow to deploy the application
 <div className="paragraph">
 Create `.github/workflows` directory structure with `pipeline.yml` file (GitHub has [good documentation](https://docs.github.com/en/actions/quickstart) on this)  
-Image
 
 In `/.github/workflows/pipeline.yml` add code to trigger the pipeline on push to `main` branch
 <div className="code">
@@ -122,7 +123,7 @@ Add a deploy job with the following steps:
 4. Apply the changes from terraform
 5. Setup node environment
 6. Install dependencies
-7. Build and export next.js application
+7. Build and export Next.js application
 8. Update/upload the application to S3
 <div className="code">
 ```
@@ -201,36 +202,33 @@ images: { unoptimized:  true }
 <div className="paragraph">
 
 Navigate to **IAM**
-Image
+    <Image className="image" src="/images/06-iam-search.png" width={800} height={174}/>
 
 Choose **users** from the side menu
-Image
 
 Click on **add users** button on the right
-Image
 
 Add a user name, select **Access key** for **AWS credential type** and click **Next**
-Image
 
 Select **attach existing policies directly**
-Image
 
 Add **AmazonS3FullAccess** and **CloudFrontFullAccess** permissions
-Image
-Image
 
 Review the new user and click on **create user**
-Image
+    <Image className="image" src="/images/09-iam-review-user.png" width={800} height={555}/>
+
 
 We will use **Access key ID** and **Secret access key**, so keep these values safe (we can discard and regenerate them later if needed)
-Image
+    <Image className="image" src="/images/10-iam-keys.png" width={800} height={73}/>
+
 
 </div>
-## 6. Set AWS environment variables in github secrets
+## 6. Set AWS environment variables in GitHub secrets
 <div className="paragraph">
 
 In GitHub, navigate to your repository > **Settings**
 From the side menu select **secrets** > **actions**
+    <Image className="image" src="/images/11-github-actions-secrets.png" width={800} height={397}/>
 
 Add new repository secrets named **AWS_ACCESS_KEY_ID** and **AWS_SECRET_ACCESS_KEY** and set them to values generated in step 5
 
@@ -238,10 +236,11 @@ Add new repository secrets named **AWS_ACCESS_KEY_ID** and **AWS_SECRET_ACCESS_K
 ## 7. Push the code!
 <div className="paragraph">
 
-At this point we can push our changes to see the github workflow and terraform running
+At this point we can push our changes to see the GitHub workflow and terraform running
 
-We can see that the github actions pipeline has successfully completed in **Actions** tab of the repository
-Image
+We can see that the GitHub actions pipeline has successfully completed in **Actions** tab of the repository
+    <Image className="image" src="/images/12-github-actions-deploy.png" width={800} height={603}/>
+
 
 And we should also now see a new S3 bucket with the application files in AWS
 Image
@@ -311,12 +310,12 @@ resource  "aws_cloudfront_distribution"  "s3_distribution" {
 
 Commit and push the updated terrraform
 Navigate to cloudfront in AWS management console
-Image
+    <Image className="image" src="/images/13-cloudfront-search.png" width={800} height={205}/>
+
 
 Select your distribution
-Image
 
-Copy the distribution domain name into the url and see your application
-Image
 
+Copy the distribution domain name into the url and see your application running
+    <Image className="image" src="/images/14-cloudfront-url.png" width={401} height={188}/>
 </div>
